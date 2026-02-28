@@ -10,9 +10,7 @@ dependencies:
   flutter:
     sdk: flutter
   cupertino_icons: ^1.0.5
-  share_plus: any
-  blue_thermal_printer: any
-  intl: any
+  share_plus: 7.1.0
 
 dev_dependencies:
   flutter_test:
