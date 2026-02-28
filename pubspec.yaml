@@ -1,0 +1,22 @@
+name: mikroticket_pro
+description: Professional MikroTik Voucher Manager
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.5
+  blue_thermal_printer: ^1.2.3  # For the printer
+  share_plus: ^7.1.0            # For WhatsApp sharing
+  intl: ^0.18.1                 # For Date formatting
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+flutter:
+  uses-material-design: true
