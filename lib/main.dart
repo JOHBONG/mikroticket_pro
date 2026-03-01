@@ -48,15 +48,29 @@ class _JohbongMainState extends State<JohbongMain> {
   final _user = TextEditingController(text: "admin");
   final _pass = TextEditingController();
 
+  // --- THE REAL SYNC ENGINE ---
   Future<void> syncBeast() async {
     setState(() => _loading = true);
-    final String auth = 'Basic ${base64Encode(utf8.encode('${_user.text}:${_pass.text}'))}';
-    final String base = "http://${_ip.text}/rest";
+    
+    // Clean inputs to avoid "Sync Error" from hidden spaces
+    final String cleanIp = _ip.text.trim();
+    final String user = _user.text.trim();
+    final String pass = _pass.text.trim();
+    
+    final String auth = 'Basic ${base64Encode(utf8.encode('$user:$pass'))}';
+    final String base = "http://$cleanIp/rest";
 
     try {
-      final res = await http.get(Uri.parse('$base/system/resource'), headers: {'Authorization': auth}).timeout(const Duration(seconds: 7));
-      final act = await http.get(Uri.parse('$base/ip/hotspot/active'), headers: {'Authorization': auth});
-      final vch = await http.get(Uri.parse('$base/ip/hotspot/user'), headers: {'Authorization': auth});
+      // PRO HEADERS: Tells MikroTik we are an App, not a Browser
+      final Map<String, String> headers = {
+        'Authorization': auth,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      };
+
+      final res = await http.get(Uri.parse('$base/system/resource'), headers: headers).timeout(const Duration(seconds: 8));
+      final act = await http.get(Uri.parse('$base/ip/hotspot/active'), headers: headers);
+      final vch = await http.get(Uri.parse('$base/ip/hotspot/user'), headers: headers);
 
       if (res.statusCode == 200) {
         final rData = json.decode(res.body)[0];
@@ -76,16 +90,22 @@ class _JohbongMainState extends State<JohbongMain> {
           cpu = "${rData['cpu-load']}%";
           ram = "${(int.parse(rData['free-memory']) / 1024 / 1024).toStringAsFixed(0)}MB";
           uptime = rData['uptime'];
-          activeNow = aData.length;
+          activeNow = aData.length; // THIS WILL SHOW YOUR 28 CLIENTS
           salesToday = total;
           _loading = false;
         });
+        _msg("Sync Successful: Beast Linked", Colors.green);
+      } else {
+        setState(() => _loading = false);
+        _msg("Router Error: ${res.statusCode}. Check Password.", Colors.redAccent);
       }
     } catch (e) {
       setState(() => _loading = false);
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Sync Error: Verify Router Credentials")));
+      _msg("Connection Failed: Verify IP address.", Colors.redAccent);
     }
   }
+
+  void _msg(String m, Color c) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m), backgroundColor: c));
 
   Future<void> generateAndPrint(int count, String price) async {
     final pdf = pw.Document();
@@ -98,9 +118,7 @@ class _JohbongMainState extends State<JohbongMain> {
         childAspectRatio: 1.2,
         children: codes.map<pw.Widget>((c) => pw.Container(
           margin: const pw.EdgeInsets.all(4),
-          decoration: pw.BoxDecoration(
-            border: pw.Border.all(width: 0.5),
-          ),
+          decoration: pw.BoxDecoration(border: pw.Border.all(width: 0.5)),
           padding: const pw.EdgeInsets.all(8),
           child: pw.Column(children: [
             pw.Text("JOHBONG NET", style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold)),
@@ -112,7 +130,6 @@ class _JohbongMainState extends State<JohbongMain> {
         )).toList(),
       )
     ));
-
     await Printing.layoutPdf(onLayout: (format) async => pdf.save());
   }
 
@@ -120,18 +137,7 @@ class _JohbongMainState extends State<JohbongMain> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: _loading ? const Center(child: CircularProgressIndicator(color: Colors.blueAccent)) : _pages()[_tabIndex],
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _tabIndex,
-        onTap: (i) => setState(() => _tabIndex = i),
-        selectedItemColor: Colors.blueAccent,
-        type: BottomNavigationBarType.fixed,
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.bolt), label: "Dash"),
-          BottomNavigationBarItem(icon: Icon(Icons.insights), label: "Sales"),
-          BottomNavigationBarItem(icon: Icon(Icons.print), label: "Print"),
-          BottomNavigationBarItem(icon: Icon(Icons.settings), label: "Setup"),
-        ],
-      ),
+      bottomNavigationBar: _buildNavBar(),
     );
   }
 
@@ -141,33 +147,33 @@ class _JohbongMainState extends State<JohbongMain> {
     child: RefreshIndicator(
       onRefresh: syncBeast,
       child: ListView(padding: const EdgeInsets.all(20), children: [
-        _header("DASHBOARD", "Live hAP ax² Management"),
+        _header("DASHBOARD", "Real-Time Performance"),
         const SizedBox(height: 20),
         Row(children: [
           _tile("CLIENTS", "$activeNow", Icons.people, Colors.green),
-          _tile("CPU", cpu, Icons.speed, Colors.orange),
+          _tile("CPU LOAD", cpu, Icons.speed, Colors.orange),
         ]),
         Row(children: [
-          _tile("RAM", ram, Icons.memory, Colors.purple),
+          _tile("FREE RAM", ram, Icons.memory, Colors.purple),
           _tile("UPTIME", uptime, Icons.timer, Colors.blue),
         ]),
         const SizedBox(height: 30),
-        _actionCard("ACTIVE STATUS", "Real-time communication active", Icons.check_circle, Colors.blueAccent),
+        _actionCard("NETWORK LIVE", "Direct REST API connection active", Icons.radar, Colors.blueAccent),
       ]),
     ),
   );
 
   Widget _buildSales() => SafeArea(
     child: ListView(padding: const EdgeInsets.all(20), children: [
-      _header("REVENUE", "Income Tracking"),
+      _header("REVENUE", "Based on Voucher Comments"),
       const SizedBox(height: 20),
       _revenueCard(),
       const SizedBox(height: 30),
-      const Text("RECENT VOUCHERS", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white24, fontSize: 12)),
+      const Text("RECENT VOUCHER ACTIVITY", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white24, fontSize: 11)),
       ...recentVouchers.map((v) => ListTile(
         contentPadding: EdgeInsets.zero,
-        leading: const Icon(Icons.qr_code, color: Colors.white24),
-        title: Text("User: ${v['user']}"),
+        leading: const Icon(Icons.confirmation_num, color: Colors.white24),
+        title: Text("Voucher: ${v['user']}"),
         trailing: Text("Tsh ${v['price']}", style: const TextStyle(color: Colors.greenAccent, fontWeight: FontWeight.bold)),
       )).toList(),
     ]),
@@ -177,13 +183,13 @@ class _JohbongMainState extends State<JohbongMain> {
     child: Padding(
       padding: const EdgeInsets.all(20.0),
       child: Column(children: [
-        _header("GENERATOR", "Voucher Printing"),
+        _header("GENERATOR", "Direct Printing"),
         const Spacer(),
-        _printButton("PRINT 500 TSH (40 PCS)", "500", Colors.orange),
+        _printButton("500 TSH VOUCHERS", "500", Colors.orange),
         const SizedBox(height: 12),
-        _printButton("PRINT 1,000 TSH (40 PCS)", "1000", Colors.blue),
+        _printButton("1,000 TSH VOUCHERS", "1000", Colors.blue),
         const SizedBox(height: 12),
-        _printButton("PRINT 2,000 TSH (40 PCS)", "2000", Colors.green),
+        _printButton("2,000 TSH VOUCHERS", "2000", Colors.green),
         const Spacer(),
       ]),
     ),
@@ -192,16 +198,16 @@ class _JohbongMainState extends State<JohbongMain> {
   Widget _buildSettings() => Padding(
     padding: const EdgeInsets.all(20.0),
     child: Column(children: [
-      _header("CONFIG", "Terminal Credentials"),
+      _header("SETUP", "Router Verification"),
       const SizedBox(height: 20),
-      TextField(controller: _ip, decoration: const InputDecoration(labelText: "Router IP Address")),
+      TextField(controller: _ip, decoration: const InputDecoration(labelText: "Router IP (Ex: 192.168.88.1)")),
       TextField(controller: _user, decoration: const InputDecoration(labelText: "Admin User")),
       TextField(controller: _pass, decoration: const InputDecoration(labelText: "Admin Password"), obscureText: true),
       const SizedBox(height: 30),
       ElevatedButton(
         onPressed: syncBeast, 
         style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 60), backgroundColor: Colors.blueAccent),
-        child: const Text("SAVE & REFRESH DATA", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+        child: const Text("SAVE & SYNC DATA", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
       ),
     ]),
   );
@@ -226,7 +232,7 @@ class _JohbongMainState extends State<JohbongMain> {
     width: double.infinity, padding: const EdgeInsets.all(30),
     decoration: BoxDecoration(color: Colors.green.withOpacity(0.05), borderRadius: BorderRadius.circular(25), border: Border.all(color: Colors.green.withOpacity(0.1))),
     child: Column(children: [
-      const Text("TODAY'S ESTIMATED SALES", style: TextStyle(color: Colors.white38, fontSize: 11)),
+      const Text("ESTIMATED SALES TODAY", style: TextStyle(color: Colors.white38, fontSize: 11)),
       const SizedBox(height: 10),
       Text("Tsh ${NumberFormat("#,###").format(salesToday)}", style: const TextStyle(fontSize: 34, fontWeight: FontWeight.bold, color: Colors.greenAccent)),
     ]),
@@ -238,4 +244,11 @@ class _JohbongMainState extends State<JohbongMain> {
   );
 
   Widget _actionCard(String t, String s, IconData i, Color c) => Container(padding: const EdgeInsets.all(15), decoration: BoxDecoration(color: Colors.white.withOpacity(0.03), borderRadius: BorderRadius.circular(15)), child: Row(children: [Icon(i, color: c, size: 20), const SizedBox(width: 15), Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(t, style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 12)), Text(s, style: const TextStyle(fontSize: 10, color: Colors.white38))])]));
+
+  Widget _buildNavBar() => BottomNavigationBar(currentIndex: _tabIndex, onTap: (i) => setState(() => _tabIndex = i), selectedItemColor: Colors.blueAccent, type: BottomNavigationBarType.fixed, items: const [
+    BottomNavigationBarItem(icon: Icon(Icons.bolt), label: "Dash"),
+    BottomNavigationBarItem(icon: Icon(Icons.insights), label: "Sales"),
+    BottomNavigationBarItem(icon: Icon(Icons.print), label: "Print"),
+    BottomNavigationBarItem(icon: Icon(Icons.settings), label: "Setup"),
+  ]);
 }
