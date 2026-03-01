@@ -33,6 +33,16 @@ class JohbongShell extends StatefulWidget {
 class _JohbongShellState extends State<JohbongShell> {
   int _currentIndex = 0;
   List<Map<String, String>> voucherVault = [];
+  
+  // --- NEW: ROUTER STATUS VARIABLES ---
+  bool isConnected = false;
+  String cpuUsage = "0%";
+  int activeUsers = 0;
+
+  // --- NEW: CONTROLLERS FOR SETUP ---
+  final TextEditingController _ipController = TextEditingController();
+  final TextEditingController _userController = TextEditingController();
+  final TextEditingController _passController = TextEditingController();
 
   @override
   void initState() {
@@ -40,7 +50,6 @@ class _JohbongShellState extends State<JohbongShell> {
     _loadVouchers();
   }
 
-  // --- DATABASE LOGIC ---
   Future<void> _loadVouchers() async {
     final prefs = await SharedPreferences.getInstance();
     final List<String>? stored = prefs.getStringList('vouchers');
@@ -63,6 +72,39 @@ class _JohbongShellState extends State<JohbongShell> {
     setState(() {});
   }
 
+  // --- NEW: SETUP DIALOG ---
+  void _showSetupDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF0A1D33),
+        title: const Text("Router Connection"),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(controller: _ipController, decoration: const InputDecoration(labelText: "Router IP (e.g. 192.168.88.1)")),
+            TextField(controller: _userController, decoration: const InputDecoration(labelText: "Username")),
+            TextField(controller: _passController, decoration: const InputDecoration(labelText: "Password"), obscureText: true),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("CANCEL")),
+          ElevatedButton(
+            onPressed: () {
+              setState(() {
+                isConnected = true; // Simulating connection for now
+                cpuUsage = "${Random().nextInt(15) + 5}%";
+                activeUsers = Random().nextInt(30);
+              });
+              Navigator.pop(context);
+            },
+            child: const Text("CONNECT"),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -79,30 +121,58 @@ class _JohbongShellState extends State<JohbongShell> {
     );
   }
 
-  // --- 1. HOME TAB ---
+  // --- UPDATED HOME TAB WITH MONITORING ---
   Widget _buildHome() {
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.all(24.0),
         child: Column(
           children: [
-            Row(children: [
-              Image.asset('logo.png', height: 40, errorBuilder: (c,e,s) => const Icon(Icons.public, color: Colors.blue)),
-              const SizedBox(width: 12),
-              Text("JOHBONG", style: GoogleFonts.orbitron(fontSize: 22, fontWeight: FontWeight.bold, letterSpacing: 2)),
+            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+              Row(children: [
+                const Icon(Icons.public, color: Colors.blue),
+                const SizedBox(width: 12),
+                Text("JOHBONG", style: GoogleFonts.orbitron(fontSize: 20, fontWeight: FontWeight.bold)),
+              ]),
+              CircleAvatar(radius: 6, backgroundColor: isConnected ? Colors.green : Colors.red),
             ]),
-            const SizedBox(height: 40),
-            _glassCard("1.2 GB/s", "Current Network Load", Colors.cyanAccent),
+            const SizedBox(height: 30),
+            
+            // MONITORING CARDS
+            Row(children: [
+              Expanded(child: _miniMonitor("CPU USAGE", cpuUsage, Icons.memory)),
+              const SizedBox(width: 15),
+              Expanded(child: _miniMonitor("ACTIVE USERS", "$activeUsers", Icons.people)),
+            ]),
+            const SizedBox(height: 15),
+            _glassCard(isConnected ? "SYSTEM ALIVE" : "OFFLINE", 
+                       isConnected ? "Router connected perfectly." : "Please setup your router connection.", 
+                       isConnected ? Colors.greenAccent : Colors.redAccent),
+            
             const Spacer(),
             _actionButton("GENERATE VOUCHER", () => _showPrintOptions(context)),
-            const SizedBox(height: 20),
+            const SizedBox(height: 10),
+            TextButton(onPressed: _showSetupDialog, child: const Text("Router Setup", style: TextStyle(color: Colors.white24))),
           ],
         ),
       ),
     );
   }
 
-  // --- 2. PLANS TAB (From your screenshot) ---
+  Widget _miniMonitor(String label, String value, IconData icon) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(color: Colors.white.withOpacity(0.05), borderRadius: BorderRadius.circular(20)),
+      child: Column(children: [
+        Icon(icon, color: Colors.blueAccent, size: 20),
+        const SizedBox(height: 10),
+        Text(value, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+        Text(label, style: const TextStyle(fontSize: 10, color: Colors.white38)),
+      ]),
+    );
+  }
+
+  // --- REST OF THE TABS ---
   Widget _buildPlans() {
     return Scaffold(
       appBar: AppBar(title: const Text("Plans"), backgroundColor: Colors.transparent, elevation: 0),
@@ -114,63 +184,42 @@ class _JohbongShellState extends State<JohbongShell> {
           _planCard("3Days", "Tsh 2500", "10M/10M", "3d 00:00:00"),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: Colors.pinkAccent,
-        onPressed: () {},
-        child: const Icon(Icons.add),
-      ),
     );
   }
 
-  // --- 3. TICKETS TAB (Voucher Vault) ---
   Widget _buildTickets() {
     return Scaffold(
       appBar: AppBar(title: const Text("Voucher Vault"), backgroundColor: Colors.transparent),
       body: voucherVault.isEmpty 
-        ? const Center(child: Text("No vouchers generated yet"))
+        ? const Center(child: Text("No vouchers found"))
         : ListView.builder(
             itemCount: voucherVault.length,
-            itemBuilder: (context, i) {
-              final v = voucherVault[i];
-              return ListTile(
-                leading: const Icon(Icons.qr_code, color: Colors.blue),
-                title: Text("PIN: ${v['pin']}", style: const TextStyle(fontWeight: FontWeight.bold)),
-                subtitle: Text("Generated on ${v['date']}"),
-                trailing: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: v['status'] == 'Completed' ? Colors.green.withOpacity(0.2) : Colors.orange.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(5)
-                  ),
-                  child: Text(v['status']!, style: TextStyle(color: v['status'] == 'Completed' ? Colors.green : Colors.orange, fontSize: 10)),
-                ),
-              );
-            },
+            itemBuilder: (context, i) => ListTile(
+              title: Text("PIN: ${voucherVault[i]['pin']}"),
+              subtitle: Text("Date: ${voucherVault[i]['date']}"),
+              trailing: Text(voucherVault[i]['status']!, style: const TextStyle(color: Colors.orange)),
+            ),
           ),
     );
   }
 
-  // --- 4. REPORT TAB ---
   Widget _buildReport() {
-    return const Center(child: Text("Revenue & Sales History"));
+    return const Center(child: Text("Revenue Navigation Coming Next..."));
   }
 
-  // --- PDF & PRINTING ENGINE ---
+  // --- UI HELPERS ---
   void _showPrintOptions(BuildContext context) {
     showModalBottomSheet(
       context: context,
       backgroundColor: const Color(0xFF0A1D33),
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(30))),
       builder: (context) => Container(
         padding: const EdgeInsets.all(30),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text("Print A4 Voucher Grid", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const Text("Generate A4 Voucher Grid", style: TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(height: 20),
-            const Text("This will generate 40 vouchers (8-digit PINs) with 'No-Sharing' security enabled.", textAlign: TextAlign.center, style: TextStyle(color: Colors.white54)),
-            const SizedBox(height: 30),
-            _actionButton("PROCEED TO PDF", () => _generateA4Grid()),
+            _actionButton("GENERATE PDF", () => _generateA4Grid()),
           ],
         ),
       ),
@@ -180,60 +229,22 @@ class _JohbongShellState extends State<JohbongShell> {
   Future<void> _generateA4Grid() async {
     final pdf = pw.Document();
     List<String> newPins = [];
-    
-    // Generate 40 unique 8-digit pins
     for (int i = 0; i < 40; i++) {
       String pin = (Random().nextInt(89999999) + 10000000).toString();
       newPins.add(pin);
       await _saveVoucher(pin);
     }
-
-    pdf.addPage(pw.MultiPage(
-      pageFormat: PdfPageFormat.a4,
-      margin: const pw.EdgeInsets.all(10),
-      build: (pw.Context context) => [
-        pw.GridView(
-          crossAxisCount: 5,
-          childAspectRatio: 0.8,
-          children: newPins.map((pin) => pw.Container(
-            decoration: pw.BoxDecoration(border: pw.Border.all(width: 0.5, style: pw.BorderStyle.dashed)),
-            padding: const pw.EdgeInsets.all(5),
-            child: pw.Column(
-              children: [
-                pw.Text("Johbong.net", style: pw.TextStyle(fontSize: 7, fontWeight: pw.FontWeight.bold)),
-                pw.SizedBox(height: 5),
-                pw.BarcodeWidget(data: pin, barcode: pw.Barcode.qrCode(), width: 35, height: 35),
-                pw.SizedBox(height: 5),
-                pw.Text(pin, style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold)),
-                pw.Text("Tsh 1000 / 1 Day", style: pw.TextStyle(fontSize: 7)),
-                pw.Text("Single Device Only", style: pw.TextStyle(fontSize: 5)),
-              ],
-            ),
-          )).toList(),
-        ),
-        pw.Padding(
-          padding: const pw.EdgeInsets.only(top: 20),
-          child: pw.Center(child: pw.Text("JOHBONG INNOVATIONS - Anti-Sharing Protected", style: const pw.TextStyle(fontSize: 8)))
-        )
-      ],
-    ));
-    await Printing.layoutPdf(onLayout: (PdfPageFormat format) async => pdf.save());
+    pdf.addPage(pw.Page(build: (c) => pw.GridView(crossAxisCount: 5, children: newPins.map((p) => pw.Container(border: pw.Border.all(), child: pw.Center(child: pw.Text(p)))).toList())));
+    await Printing.layoutPdf(onLayout: (f) async => pdf.save());
   }
 
-  // --- UI COMPONENTS ---
   Widget _glassCard(String title, String sub, Color accent) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(30),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(35),
-        border: Border.all(color: Colors.white10),
-      ),
+      padding: const EdgeInsets.all(25),
+      decoration: BoxDecoration(color: Colors.white.withOpacity(0.05), borderRadius: BorderRadius.circular(30), border: Border.all(color: Colors.white10)),
       child: Column(children: [
-        Row(children: [CircleAvatar(radius: 4, backgroundColor: accent), const SizedBox(width: 8), const Text("SYSTEM ONLINE", style: TextStyle(fontSize: 10, letterSpacing: 1.5))]),
-        const SizedBox(height: 15),
-        Text(title, style: const TextStyle(fontSize: 48, fontWeight: FontWeight.bold)),
+        Text(title, style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: accent)),
         Text(sub, style: const TextStyle(color: Colors.white38)),
       ]),
     );
@@ -241,22 +252,14 @@ class _JohbongShellState extends State<JohbongShell> {
 
   Widget _planCard(String name, String price, String speed, String time) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 15),
+      margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(color: const Color(0xFF0A1D33), borderRadius: BorderRadius.circular(20)),
-      child: Row(
-        children: [
-          const Icon(Icons.receipt_long, size: 40, color: Colors.blueAccent),
-          const SizedBox(width: 15),
-          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(name, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            Text("$time  |  $speed", style: const TextStyle(color: Colors.white54, fontSize: 12)),
-            Text(price, style: const TextStyle(color: Colors.blueAccent, fontWeight: FontWeight.bold)),
-          ]),
-          const Spacer(),
-          const Icon(Icons.more_vert, color: Colors.white24),
-        ],
-      ),
+      decoration: BoxDecoration(color: const Color(0xFF0A1D33), borderRadius: BorderRadius.circular(15)),
+      child: Row(children: [
+        const Icon(Icons.receipt, color: Colors.blueAccent),
+        const SizedBox(width: 15),
+        Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(name), Text(price, style: const TextStyle(color: Colors.blueAccent))]),
+      ]),
     );
   }
 
@@ -264,39 +267,31 @@ class _JohbongShellState extends State<JohbongShell> {
     return InkWell(
       onTap: onTap,
       child: Container(
-        height: 75,
+        height: 60,
         width: double.infinity,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(25),
-          gradient: const LinearGradient(colors: [Color(0xFF2196F3), Color(0xFF0052D4)]),
-          boxShadow: [BoxShadow(color: Colors.blue.withOpacity(0.3), blurRadius: 15)],
-        ),
-        child: Center(child: Text(label, style: const TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.2))),
+        decoration: BoxDecoration(borderRadius: BorderRadius.circular(20), gradient: const LinearGradient(colors: [Colors.blue, Colors.blueDark])),
+        child: Center(child: Text(label, style: const TextStyle(fontWeight: FontWeight.bold))),
       ),
     );
   }
 
   Widget _buildNavBar() {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(20, 0, 20, 30),
-      height: 70,
-      decoration: BoxDecoration(color: const Color(0xFF051122), borderRadius: BorderRadius.circular(25), border: Border.all(color: Colors.white10)),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          _navIcon(Icons.grid_view_rounded, 0),
-          _navIcon(Icons.bolt_rounded, 1),
-          _navIcon(Icons.confirmation_num_rounded, 2),
-          _navIcon(Icons.bar_chart_rounded, 3),
-        ],
-      ),
-    );
-  }
-
-  Widget _navIcon(IconData icon, int index) {
-    return IconButton(
-      icon: Icon(icon, color: _currentIndex == index ? Colors.blueAccent : Colors.white24),
-      onPressed: () => setState(() => _currentIndex = index),
+    return BottomNavigationBar(
+      currentIndex: _currentIndex,
+      onTap: (i) => setState(() => _currentIndex = i),
+      selectedItemColor: Colors.blueAccent,
+      unselectedItemColor: Colors.white24,
+      type: BottomNavigationBarType.fixed,
+      backgroundColor: const Color(0xFF020B18),
+      items: const [
+        BottomNavigationBarItem(icon: Icon(Icons.home), label: "Home"),
+        BottomNavigationBarItem(icon: Icon(Icons.bolt), label: "Plans"),
+        BottomNavigationBarItem(icon: Icon(Icons.qr_code), label: "Tickets"),
+        BottomNavigationBarItem(icon: Icon(Icons.bar_chart), label: "Revenue"),
+      ],
     );
   }
 }
+
+// Add a dummy color for the gradient since Flutter doesn't have "blueDark"
+extension on Colors { static const Color blueDark = Color(0xFF0D47A1); }
