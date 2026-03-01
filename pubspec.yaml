@@ -1,15 +1,26 @@
-name: mikroticket_pro
-description: Johbong Network Manager
+name: johbong_pro
+description: Official Johbong Network Management App
 version: 1.0.0+1
+
 environment:
   sdk: '>=3.0.0 <4.0.0'
+
 dependencies:
   flutter:
     sdk: flutter
-  cupertino_icons: ^1.0.5
   google_fonts: ^6.1.0
+  pdf: ^3.10.8
+  printing: ^5.11.1
+  intl: ^0.19.0
+  shared_preferences: ^2.2.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
 
 flutter:
   uses-material-design: true
+  
+  # THIS IS THE PART WE CANNOT FORGET:
   assets:
-    - logo.png  # This tells the app to look for your image
+    - logo.png
