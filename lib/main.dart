@@ -19,47 +19,7 @@ class JohbongProApp extends StatelessWidget {
         scaffoldBackgroundColor: const Color(0xFF020B18),
         textTheme: GoogleFonts.poppinsTextTheme(ThemeData.dark().textTheme),
       ),
-      home: const LoginScreen(),
-    );
-  }
-}
-
-class LoginScreen extends StatelessWidget {
-  const LoginScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(30.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Image.asset('logo.png', height: 100, errorBuilder: (c, e, s) => const Icon(Icons.public, size: 80, color: Colors.blue)),
-              const SizedBox(height: 20),
-              Text("JOHBONG PRO", style: GoogleFonts.orbitron(fontSize: 28, fontWeight: FontWeight.bold, letterSpacing: 3)),
-              const Text("Network Administration Suite", style: TextStyle(color: Colors.white38)),
-              const SizedBox(height: 60),
-              _socialButton("Sign in with Google", Colors.white, Colors.black, () {
-                Navigator.pushReplacement(context, MaterialPageRoute(builder: (c) => const JohbongShell()));
-              }),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _socialButton(String label, Color bg, Color text, VoidCallback onTap) {
-    return InkWell(
-      onTap: onTap,
-      child: Container(
-        height: 55,
-        width: double.infinity,
-        decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(15)),
-        child: Center(child: Text(label, style: TextStyle(color: text, fontWeight: FontWeight.bold))),
-      ),
+      home: const JohbongShell(),
     );
   }
 }
@@ -132,10 +92,20 @@ class _JohbongShellState extends State<JohbongShell> {
       build: (pw.Context context) {
         return pw.GridView(
           crossAxisCount: 5,
+          childAspectRatio: 1.5,
           children: newPins.map<pw.Widget>((p) => pw.Container(
-            border: pw.Border.all(width: 0.5),
-            padding: const pw.EdgeInsets.all(5),
-            child: pw.Center(child: pw.Text(p, style: const pw.TextStyle(fontSize: 10))),
+            border: pw.Border.all(width: 0.5, color: PdfColors.grey),
+            padding: const pw.EdgeInsets.all(10),
+            child: pw.Column(
+              mainAxisAlignment: pw.MainAxisAlignment.center,
+              children: [
+                pw.Text("JOHBONG", style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold)),
+                pw.SizedBox(height: 5),
+                pw.Text(p, style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold)),
+                pw.SizedBox(height: 5),
+                pw.Text("Price: 500", style: pw.TextStyle(fontSize: 8)),
+              ],
+            ),
           )).toList(),
         );
       },
@@ -191,7 +161,7 @@ class _JohbongShellState extends State<JohbongShell> {
         TextField(controller: _userController, decoration: const InputDecoration(labelText: "User")),
         TextField(controller: _passController, decoration: const InputDecoration(labelText: "Pass"), obscureText: true),
       ]),
-      actions: [ElevatedButton(onPressed: () { setState(() { isConnected = true; cpuUsage = "12%"; activeUsers = 8; }); Navigator.pop(context); }, child: const Text("CONNECT"))],
+      actions: [ElevatedButton(onPressed: () { setState(() { isConnected = true; cpuUsage = "5%"; activeUsers = 4; }); Navigator.pop(context); }, child: const Text("CONNECT"))],
     ));
   }
 
@@ -199,9 +169,23 @@ class _JohbongShellState extends State<JohbongShell> {
   Widget _glassCard(String t, String s, Color a) => Container(width: double.infinity, padding: const EdgeInsets.all(25), decoration: BoxDecoration(color: Colors.white.withOpacity(0.05), borderRadius: BorderRadius.circular(30)), child: Column(children: [Text(t, style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: a)), Text(s, style: const TextStyle(color: Colors.white38))]));
   Widget _actionButton(String l, VoidCallback o) => InkWell(onTap: o, child: Container(height: 60, width: double.infinity, decoration: BoxDecoration(borderRadius: BorderRadius.circular(20), gradient: const LinearGradient(colors: [Colors.blue, Color(0xFF0D47A1)])), child: Center(child: Text(l, style: const TextStyle(fontWeight: FontWeight.bold)))));
   
-  Widget _buildPlans() => Scaffold(appBar: AppBar(title: const Text("Plans"), backgroundColor: Colors.transparent), body: const Center(child: Text("Manage Speeds & Prices")));
+  Widget _buildPlans() => Scaffold(appBar: AppBar(title: const Text("Plans"), backgroundColor: Colors.transparent), body: const Center(child: Text("Plan Manager Active")));
   Widget _buildTickets() => Scaffold(appBar: AppBar(title: const Text("Vault"), backgroundColor: Colors.transparent), body: ListView.builder(itemCount: voucherVault.length, itemBuilder: (c, i) => ListTile(title: Text("PIN: ${voucherVault[i]['pin']}"), trailing: Text(voucherVault[i]['status']!))));
-  Widget _buildReport() => Scaffold(appBar: AppBar(title: const Text("Revenue"), backgroundColor: Colors.transparent), body: Center(child: Text("Today: Tsh ${dailyRevenue[DateFormat('yyyy-MM-dd').format(DateTime.now())] ?? 0}")));
+  Widget _buildReport() {
+    String today = DateFormat('yyyy-MM-dd').format(DateTime.now());
+    return Scaffold(
+      appBar: AppBar(title: const Text("Revenue"), backgroundColor: Colors.transparent), 
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Text("TODAY'S SALES", style: TextStyle(color: Colors.white38)),
+            Text("Tsh ${dailyRevenue[today] ?? 0}", style: const TextStyle(fontSize: 40, fontWeight: FontWeight.bold, color: Colors.greenAccent)),
+          ],
+        ),
+      )
+    );
+  }
   
   Widget _buildNavBar() => BottomNavigationBar(currentIndex: _currentIndex, onTap: (i) => setState(() => _currentIndex = i), selectedItemColor: Colors.blueAccent, unselectedItemColor: Colors.white24, type: BottomNavigationBarType.fixed, backgroundColor: const Color(0xFF020B18), items: const [BottomNavigationBarItem(icon: Icon(Icons.home), label: "Home"), BottomNavigationBarItem(icon: Icon(Icons.bolt), label: "Plans"), BottomNavigationBarItem(icon: Icon(Icons.qr_code), label: "Tickets"), BottomNavigationBarItem(icon: Icon(Icons.bar_chart), label: "Revenue")]);
 }
