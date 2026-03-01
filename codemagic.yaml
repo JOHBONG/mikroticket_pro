@@ -1,15 +1,21 @@
 workflows:
-  main-workflow:
-    name: Final Build
+  final-build-workflow:
+    name: Final MikroTicket Build
     instance_type: mac_mini_m1
+    max_build_duration: 60
     environment:
       flutter: stable
+      groups:
+        - sdk
     scripts:
-      - name: Initialize Android
-        script: flutter create . --platforms=android
-      - name: Get Packages
-        script: flutter pub get
-      - name: Build APK
-        script: flutter build apk --release --no-codesign
+      - name: Create Android Project
+        script: | 
+          flutter create . --platforms=android
+      - name: Get Dependencies
+        script: | 
+          flutter pub get
+      - name: Build Android APK
+        script: | 
+          flutter build apk --release
     artifacts:
-      - build/app/outputs/flutter-apk/**/app-release.apk
+      - build/app/outputs/flutter-apk/app-release.apk
