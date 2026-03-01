@@ -27,10 +27,10 @@ class JohbongProApp extends StatelessWidget {
 class JohbongShell extends StatefulWidget {
   const JohbongShell({super.key});
   @override
-  State<JohbongShell> createState() => _JohbongShellState();
+  State<JohbongShell> createState() => __JohbongShellState();
 }
 
-class _JohbongShellState extends State<JohbongShell> {
+class __JohbongShellState extends State<JohbongShell> {
   int _currentIndex = 0;
   List<Map<String, String>> voucherVault = [];
   Map<String, int> dailyRevenue = {};
@@ -78,6 +78,7 @@ class _JohbongShellState extends State<JohbongShell> {
     setState(() {});
   }
 
+  // --- THE CORRECTED PDF FUNCTION ---
   Future<void> _generateA4Grid() async {
     final pdf = pw.Document();
     List<String> newPins = [];
@@ -94,7 +95,9 @@ class _JohbongShellState extends State<JohbongShell> {
           crossAxisCount: 5,
           childAspectRatio: 1.5,
           children: newPins.map<pw.Widget>((p) => pw.Container(
-            border: pw.Border.all(width: 0.5, color: PdfColors.grey),
+            decoration: pw.BoxDecoration(
+              border: pw.Border.all(width: 0.5, color: PdfColors.grey),
+            ),
             padding: const pw.EdgeInsets.all(10),
             child: pw.Column(
               mainAxisAlignment: pw.MainAxisAlignment.center,
@@ -161,7 +164,7 @@ class _JohbongShellState extends State<JohbongShell> {
         TextField(controller: _userController, decoration: const InputDecoration(labelText: "User")),
         TextField(controller: _passController, decoration: const InputDecoration(labelText: "Pass"), obscureText: true),
       ]),
-      actions: [ElevatedButton(onPressed: () { setState(() { isConnected = true; cpuUsage = "5%"; activeUsers = 4; }); Navigator.pop(context); }, child: const Text("CONNECT"))],
+      actions: [ElevatedButton(onPressed: () { setState(() { isConnected = true; cpuUsage = "7%"; activeUsers = 5; }); Navigator.pop(context); }, child: const Text("CONNECT"))],
     ));
   }
 
