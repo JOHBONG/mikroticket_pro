@@ -27,7 +27,6 @@ class _MainAppShellState extends State<MainAppShell> {
   int _currentIndex = 0;
   bool isAdmin = false; 
 
-  // Global Business Settings
   String brandName = "MY WIFI NET";
   bool showQR = true;
 
@@ -91,4 +90,108 @@ class _MainAppShellState extends State<MainAppShell> {
             ElevatedButton(
               style: ElevatedButton.styleFrom(backgroundColor: Colors.pinkAccent, minimumSize: const Size(double.infinity, 50)),
               onPressed: () => Navigator.pop(context),
-              child: const Text("GENERATE & PRINT
+              child: const Text("GENERATE & PRINT"),
+            ),
+            const SizedBox(height: 20),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class AdminLockPage extends StatefulWidget {
+  final VoidCallback onSuccess;
+  const AdminLockPage({super.key, required this.onSuccess});
+  @override
+  State<AdminLockPage> createState() => _AdminLockPageState();
+}
+
+class _AdminLockPageState extends State<AdminLockPage> {
+  String pin = "";
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.lock, color: Colors.pinkAccent, size: 50),
+          const SizedBox(height: 10),
+          const Text("Admin Access Required"),
+          const SizedBox(height: 20),
+          Row(mainAxisAlignment: MainAxisAlignment.center, children: List.generate(4, (i) => Icon(Icons.circle, size: 12, color: i < pin.length ? Colors.pinkAccent : Colors.white12))),
+          const SizedBox(height: 20),
+          SizedBox(
+            width: 250,
+            child: Wrap(
+              alignment: WrapAlignment.center,
+              spacing: 20, 
+              runSpacing: 20, 
+              children: List.generate(9, (index) => InkWell(
+                onTap: () {
+                  setState(() => pin += "${index + 1}");
+                  if (pin == "1234") widget.onSuccess();
+                  if (pin.length >= 4 && pin != "1234") setState(() => pin = "");
+                },
+                child: CircleAvatar(radius: 30, backgroundColor: const Color(0xFF0A1D33), child: Text("${index + 1}", style: const TextStyle(fontSize: 20))),
+              )),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class HomePage extends StatelessWidget {
+  final VoidCallback onCreateTap;
+  const HomePage({super.key, required this.onCreateTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            _header(),
+            const SizedBox(height: 20),
+            Row(children: [
+              _stat("17", "Active", Colors.green),
+              _stat("1.1k", "Tickets", Colors.blue),
+              _stat("5", "Plans", Colors.purple),
+            ]),
+            const SizedBox(height: 30),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFD81B60), minimumSize: const Size(double.infinity, 60)),
+              onPressed: onCreateTap,
+              child: const Text("+ Create tickets", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _header() => Container(
+    padding: const EdgeInsets.all(20),
+    decoration: BoxDecoration(color: const Color(0xFF0A1D33), borderRadius: BorderRadius.circular(15)),
+    child: const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text("ROUTER STATUS", style: TextStyle(color: Colors.white38, fontSize: 10)),
+      Text("Connected: 192.168.88.1", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+      SizedBox(height: 10),
+      LinearProgressIndicator(value: 0.2, color: Colors.cyanAccent, backgroundColor: Colors.white10),
+    ]),
+  );
+
+  Widget _stat(String v, String l, Color c) => Expanded(child: Container(
+    margin: const EdgeInsets.all(4), padding: const EdgeInsets.symmetric(vertical: 20),
+    decoration: BoxDecoration(color: const Color(0xFF0A1D33), borderRadius: BorderRadius.circular(12)),
+    child: Column(children: [Icon(Icons.circle, size: 8, color: c), Text(v, style: const TextStyle(fontWeight: FontWeight.bold)), Text(l, style: const TextStyle(fontSize: 10, color: Colors.white54))]),
+  ));
+}
+
+class PlansPage extends StatelessWidget { const PlansPage({super.key}); @override Widget build(BuildContext context) => Scaffold(appBar: AppBar(title: const Text("Plans")), body: const Center(child: Text("Manage Data Plans Here"))); }
+class TicketsPage extends StatelessWidget { const TicketsPage({super.key}); @override Widget build(BuildContext context) => Scaffold(appBar: AppBar(title: const Text("Vouchers")), body: const Center(child: Text("Active Voucher List"))); }
+class PrinterSetupPage extends StatelessWidget { const PrinterSetupPage({super.key}); @override Widget build(BuildContext context) => Scaffold(appBar: AppBar(title: const Text("Printer Setup")), body: const Center(child: Text("Bluetooth Scanning..."))); }
+class ReportPage extends StatelessWidget { const ReportPage({super.key}); @override Widget build(BuildContext context) => Scaffold(appBar: AppBar(title: const Text("Revenue Report")), body: const Center(child: Text("Total: Tsh 34,500", style: TextStyle(fontSize: 24, color: Colors.greenAccent)))); }
