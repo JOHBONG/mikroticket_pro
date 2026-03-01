@@ -13,6 +13,8 @@ dependencies:
   printing: ^5.11.1
   intl: ^0.19.0
   shared_preferences: ^2.2.2
+  router_os_client: ^2.0.0
+  syncfusion_flutter_datepicker: ^21.1.35
 
 dev_dependencies:
   flutter_test:
@@ -20,12 +22,5 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
-  
-  # THIS IS THE PART WE CANNOT FORGET:
   assets:
     - logo.png
-
-dependencies:
-  # ... (keep the others)
-  router_os_client: ^1.0.1  # This talks to the MikroTik
-  syncfusion_flutter_datepicker: ^21.1.35  # For the Revenue Calendar
