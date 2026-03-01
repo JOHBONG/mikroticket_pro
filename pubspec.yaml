@@ -1,5 +1,5 @@
 name: mikroticket_pro
-description: Professional MikroTik Manager
+description: Johbong Network Manager
 version: 1.0.0+1
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -7,6 +7,9 @@ dependencies:
   flutter:
     sdk: flutter
   cupertino_icons: ^1.0.5
-  # These are needed for the code you provided
+  google_fonts: ^6.1.0
+
 flutter:
   uses-material-design: true
+  assets:
+    - logo.png  # This tells the app to look for your image
