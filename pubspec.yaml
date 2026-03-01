@@ -24,3 +24,8 @@ flutter:
   # THIS IS THE PART WE CANNOT FORGET:
   assets:
     - logo.png
+
+dependencies:
+  # ... (keep the others)
+  router_os_client: ^1.0.1  # This talks to the MikroTik
+  syncfusion_flutter_datepicker: ^21.1.35  # For the Revenue Calendar
