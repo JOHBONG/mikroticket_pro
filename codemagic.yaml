@@ -1,0 +1,18 @@
+workflows:
+  default-workflow:
+    name: Default Workflow
+    max_build_duration: 120
+    instance_type: mac_mini_m1
+    environment:
+      flutter: stable
+      groups:
+        - sdk
+    scripts:
+      - name: Get Flutter packages
+        script: | 
+          flutter pub get
+      - name: Build Android APK
+        script: | 
+          flutter build apk --release --no-codesign
+    artifacts:
+      - build/app/outputs/flutter-apk/**/app-release.apk
