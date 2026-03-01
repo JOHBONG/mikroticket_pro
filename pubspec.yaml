@@ -3,7 +3,7 @@ description: Official Johbong Network Management App
 version: 1.0.0+1
 
 environment:
-  sdk: '>=3.0.0 <4.0.0'
+  sdk: '>=3.4.0 <4.0.0' # Bumped this for the Router engine
 
 dependencies:
   flutter:
@@ -13,9 +13,13 @@ dependencies:
   printing: ^5.11.1
   intl: ^0.19.0
   shared_preferences: ^2.2.2
-  router_os_client: ^2.0.0
+  router_os_client: ^2.0.0 # This is the "Beast" engine
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
 
 flutter:
   uses-material-design: true
   assets:
-    - logo.png
+    - assets/logo.png
