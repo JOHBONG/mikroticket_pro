@@ -1,19 +1,20 @@
 name: johbong_pro
-description: Official Johbong Network Management App
+description: Professional MikroTik Management System
 version: 1.0.0+1
 
 environment:
-  sdk: '>=3.4.0 <4.0.0' # Bumped this for the Router engine
+  sdk: '>=3.4.0 <4.0.0'
 
 dependencies:
   flutter:
     sdk: flutter
-  google_fonts: ^6.1.0
+  google_fonts: ^6.2.1
+  http: ^1.1.0
+  intl: ^0.19.0
+  fl_chart: ^0.66.0
   pdf: ^3.10.8
   printing: ^5.11.1
-  intl: ^0.19.0
   shared_preferences: ^2.2.2
-  router_os_client: ^2.0.0 # This is the "Beast" engine
 
 dev_dependencies:
   flutter_test:
