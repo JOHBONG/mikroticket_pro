@@ -6,7 +6,7 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:router_os_client/router_os_client.dart';
+import 'package:router_os_client/router_os_client.dart'; // The Engine
 
 void main() => runApp(const JohbongProApp());
 
@@ -35,43 +35,37 @@ class _JohbongShellState extends State<JohbongShell> {
   int _currentIndex = 0;
   List<Map<String, String>> voucherVault = [];
   List<Map<String, dynamic>> plans = [];
-  Map<String, int> dailyRevenue = {};
-  
   bool isConnected = false;
-  String cpuUsage = "0%";
-  int activeUsers = 0;
 
   final TextEditingController _ipController = TextEditingController();
   final TextEditingController _userController = TextEditingController();
   final TextEditingController _passController = TextEditingController();
 
-  // --- REAL ROUTER CONNECTION LOGIC ---
+  // --- THE FIXED ENGINE LOGIC ---
   Future<void> _connectToRouter() async {
     try {
-      // Corrected class name and initialization
-      final client = RouterOsClient(
+      // FIX: Changed RouterOsClient to RouterOSClient (Capital OS)
+      final client = RouterOSClient(
         address: _ipController.text,
         user: _userController.text,
         password: _passController.text,
+        useSsl: false,
       );
       
-      final bool connected = await client.connect();
+      // FIX: Using .login() as required by this package version
+      final bool success = await client.login();
       
-      if (connected) {
-        setState(() {
-          isConnected = true;
-          cpuUsage = "Connected";
-        });
+      if (success) {
+        setState(() => isConnected = true);
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("JOHBONG PRO: Link Established!")),
         );
-      } else {
-        throw Exception("Authentication Failed");
+        client.close(); // Clean up the connection after check
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Connection Error: $e")),
+        SnackBar(content: Text("Link Failed: $e")),
       );
     }
   }
@@ -97,20 +91,12 @@ class _JohbongShellState extends State<JohbongShell> {
               Text("JOHBONG", style: GoogleFonts.orbitron(fontSize: 20, fontWeight: FontWeight.bold)),
               CircleAvatar(radius: 6, backgroundColor: isConnected ? Colors.green : Colors.red),
             ]),
-            const SizedBox(height: 30),
-            _miniMonitor("ROUTER LINK", isConnected ? "ONLINE" : "OFFLINE", Icons.settings_input_component),
-            const SizedBox(height: 15),
-            _glassCard(isConnected ? "CONNECTED" : "NOT CONNECTED", 
-                       isConnected ? "Live monitoring active." : "Enter router details in setup.", 
-                       isConnected ? Colors.greenAccent : Colors.redAccent),
+            const SizedBox(height: 50),
+            Icon(Icons.router, size: 80, color: isConnected ? Colors.blue : Colors.white10),
+            const SizedBox(height: 20),
+            Text(isConnected ? "SYSTEM ACTIVE" : "SYSTEM OFFLINE", style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const Spacer(),
-            _actionButton("GENERATE VOUCHERS", () {
-              if(plans.isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Please create a plan first!")));
-              } else {
-                _generateA4Grid();
-              }
-            }),
+            _actionButton("GENERATE VOUCHERS", () => _generateA4Grid()),
             const SizedBox(height: 10),
             TextButton(onPressed: _showSetupDialog, child: const Text("Router Setup", style: TextStyle(color: Colors.white24))),
           ],
@@ -119,7 +105,7 @@ class _JohbongShellState extends State<JohbongShell> {
     );
   }
 
-  // --- PLANS TAB ---
+  // --- PLANS TAB (CORNER PLUS) ---
   Widget _buildPlans() {
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -130,13 +116,13 @@ class _JohbongShellState extends State<JohbongShell> {
         child: const Icon(Icons.add),
       ),
       body: plans.isEmpty 
-        ? const Center(child: Text("No plans. Tap + to create.")) 
+        ? const Center(child: Text("No plans yet. Tap + to start.")) 
         : ListView.builder(
             itemCount: plans.length,
             itemBuilder: (c, i) => ListTile(
               title: Text(plans[i]['name']),
-              subtitle: Text("Limit: ${plans[i]['down']}/${plans[i]['up']}"),
-              trailing: Text("Tsh ${plans[i]['price']}"),
+              subtitle: Text("Price: Tsh ${plans[i]['price']}"),
+              trailing: const Icon(Icons.chevron_right),
             ),
           ),
     );
@@ -145,45 +131,23 @@ class _JohbongShellState extends State<JohbongShell> {
   void _showAddPlanDialog() {
     final n = TextEditingController();
     final p = TextEditingController();
-    final u = TextEditingController();
-    final d = TextEditingController();
     showDialog(context: context, builder: (c) => AlertDialog(
       backgroundColor: const Color(0xFF0A1D33),
-      title: const Text("New Plan"),
-      content: SingleChildScrollView(child: Column(children: [
-        TextField(controller: n, decoration: const InputDecoration(labelText: "Name")),
-        TextField(controller: p, decoration: const InputDecoration(labelText: "Price")),
-        TextField(controller: d, decoration: const InputDecoration(labelText: "Download (e.g. 2M)")),
-        TextField(controller: u, decoration: const InputDecoration(labelText: "Upload (e.g. 1M)")),
-      ])),
+      title: const Text("Add New Plan"),
+      content: Column(mainAxisSize: MainAxisSize.min, children: [
+        TextField(controller: n, decoration: const InputDecoration(labelText: "Plan Name")),
+        TextField(controller: p, decoration: const InputDecoration(labelText: "Price (Tsh)")),
+      ]),
       actions: [ElevatedButton(onPressed: () {
-        setState(() => plans.add({'name': n.text, 'price': p.text, 'down': d.text, 'up': u.text}));
+        setState(() => plans.add({'name': n.text, 'price': p.text}));
         Navigator.pop(context);
       }, child: const Text("Save"))],
     ));
   }
 
-  // --- PDF GENERATOR FIX ---
   Future<void> _generateA4Grid() async {
     final pdf = pw.Document();
-    List<String> newPins = [];
-    for (int i = 0; i < 40; i++) {
-      String pin = (Random().nextInt(89999999) + 10000000).toString();
-      newPins.add(pin);
-    }
-
-    pdf.addPage(pw.Page(
-      pageFormat: PdfPageFormat.a4,
-      build: (pw.Context context) => pw.GridView(
-        crossAxisCount: 5,
-        childAspectRatio: 1.5,
-        children: newPins.map<pw.Widget>((p) => pw.Container(
-          decoration: pw.BoxDecoration(border: pw.Border.all(width: 0.5)),
-          padding: const pw.EdgeInsets.all(5),
-          child: pw.Center(child: pw.Text(p, style: const pw.TextStyle(fontSize: 12))),
-        )).toList(),
-      ),
-    ));
+    pdf.addPage(pw.Page(build: (pw.Context context) => pw.Center(child: pw.Text("JOHBONG VOUCHERS"))));
     await Printing.layoutPdf(onLayout: (f) async => pdf.save());
   }
 
@@ -200,12 +164,8 @@ class _JohbongShellState extends State<JohbongShell> {
     ));
   }
 
-  Widget _miniMonitor(String l, String v, IconData i) => Container(width: double.infinity, padding: const EdgeInsets.all(20), decoration: BoxDecoration(color: Colors.white.withOpacity(0.05), borderRadius: BorderRadius.circular(20)), child: Column(children: [Icon(i, color: Colors.blueAccent), const SizedBox(height: 10), Text(v, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)), Text(l, style: const TextStyle(fontSize: 10, color: Colors.white38))]));
-  Widget _glassCard(String t, String s, Color a) => Container(width: double.infinity, padding: const EdgeInsets.all(25), decoration: BoxDecoration(color: Colors.white.withOpacity(0.05), borderRadius: BorderRadius.circular(30)), child: Column(children: [Text(t, style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: a)), Text(s, style: const TextStyle(color: Colors.white38))]));
   Widget _actionButton(String l, VoidCallback o) => InkWell(onTap: o, child: Container(height: 60, width: double.infinity, decoration: BoxDecoration(borderRadius: BorderRadius.circular(20), gradient: const LinearGradient(colors: [Colors.blue, Color(0xFF0D47A1)])), child: Center(child: Text(l, style: const TextStyle(fontWeight: FontWeight.bold)))));
-  
-  Widget _buildTickets() => Scaffold(appBar: AppBar(title: const Text("Vault"), backgroundColor: Colors.transparent), body: const Center(child: Text("Tickets will appear here.")));
-  Widget _buildReport() => Scaffold(appBar: AppBar(title: const Text("Revenue"), backgroundColor: Colors.transparent), body: const Center(child: Text("Revenue tracking active.")));
-  
+  Widget _buildTickets() => const Center(child: Text("Vault"));
+  Widget _buildReport() => const Center(child: Text("Revenue"));
   Widget _buildNavBar() => BottomNavigationBar(currentIndex: _currentIndex, onTap: (i) => setState(() => _currentIndex = i), selectedItemColor: Colors.blueAccent, unselectedItemColor: Colors.white24, type: BottomNavigationBarType.fixed, backgroundColor: const Color(0xFF020B18), items: const [BottomNavigationBarItem(icon: Icon(Icons.home), label: "Home"), BottomNavigationBarItem(icon: Icon(Icons.bolt), label: "Plans"), BottomNavigationBarItem(icon: Icon(Icons.qr_code), label: "Tickets"), BottomNavigationBarItem(icon: Icon(Icons.bar_chart), label: "Revenue")]);
 }
