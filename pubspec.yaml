@@ -1,11 +1,12 @@
 name: mikroticket_pro
-description: Professional MikroTik App
+description: Professional MikroTik Manager
 version: 1.0.0+1
 environment:
   sdk: '>=3.0.0 <4.0.0'
 dependencies:
   flutter:
     sdk: flutter
-  share_plus: ^7.1.0
+  cupertino_icons: ^1.0.5
+  # These are needed for the code you provided
 flutter:
   uses-material-design: true
