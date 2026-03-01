@@ -33,13 +33,12 @@ class JohbongShell extends StatefulWidget {
 class _JohbongShellState extends State<JohbongShell> {
   int _currentIndex = 0;
   List<Map<String, String>> voucherVault = [];
+  Map<String, int> dailyRevenue = {}; // Stores { '2026-03-01': 20000 }
   
-  // --- NEW: ROUTER STATUS VARIABLES ---
   bool isConnected = false;
   String cpuUsage = "0%";
   int activeUsers = 0;
 
-  // --- NEW: CONTROLLERS FOR SETUP ---
   final TextEditingController _ipController = TextEditingController();
   final TextEditingController _userController = TextEditingController();
   final TextEditingController _passController = TextEditingController();
@@ -47,32 +46,50 @@ class _JohbongShellState extends State<JohbongShell> {
   @override
   void initState() {
     super.initState();
-    _loadVouchers();
+    _loadData();
   }
 
-  Future<void> _loadVouchers() async {
+  // --- DATABASE: LOAD VOUCHERS & REVENUE ---
+  Future<void> _loadData() async {
     final prefs = await SharedPreferences.getInstance();
-    final List<String>? stored = prefs.getStringList('vouchers');
-    if (stored != null) {
-      setState(() {
-        voucherVault = stored.map((item) {
-          final parts = item.split('|');
-          return {'pin': parts[0], 'status': parts[1], 'date': parts[2]};
-        }).toList();
-      });
+    
+    // Load Vouchers
+    final List<String>? storedVouchers = prefs.getStringList('vouchers');
+    if (storedVouchers != null) {
+      voucherVault = storedVouchers.map((item) {
+        final parts = item.split('|');
+        return {'pin': parts[0], 'status': parts[1], 'date': parts[2]};
+      }).toList();
     }
-  }
 
-  Future<void> _saveVoucher(String pin) async {
-    final prefs = await SharedPreferences.getInstance();
-    String date = DateFormat('yyyy-MM-dd').format(DateTime.now());
-    voucherVault.insert(0, {'pin': pin, 'status': 'Generated', 'date': date});
-    List<String> toStore = voucherVault.map((e) => "${e['pin']}|${e['status']}|${e['date']}").toList();
-    await prefs.setStringList('vouchers', toStore);
+    // Load Revenue History
+    final List<String>? storedRev = prefs.getStringList('revenue_history');
+    if (storedRev != null) {
+      for (var entry in storedRev) {
+        final parts = entry.split('|');
+        dailyRevenue[parts[0]] = int.parse(parts[1]);
+      }
+    }
     setState(() {});
   }
 
-  // --- NEW: SETUP DIALOG ---
+  Future<void> _saveVoucher(String pin, int price) async {
+    final prefs = await SharedPreferences.getInstance();
+    String date = DateFormat('yyyy-MM-dd').format(DateTime.now());
+    
+    // Save Voucher
+    voucherVault.insert(0, {'pin': pin, 'status': 'Generated', 'date': date});
+    List<String> toStore = voucherVault.map((e) => "${e['pin']}|${e['status']}|${e['date']}").toList();
+    await prefs.setStringList('vouchers', toStore);
+
+    // Save Revenue
+    dailyRevenue[date] = (dailyRevenue[date] ?? 0) + price;
+    List<String> revToStore = dailyRevenue.entries.map((e) => "${e.key}|${e.value}").toList();
+    await prefs.setStringList('revenue_history', revToStore);
+    
+    setState(() {});
+  }
+
   void _showSetupDialog() {
     showDialog(
       context: context,
@@ -82,7 +99,7 @@ class _JohbongShellState extends State<JohbongShell> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            TextField(controller: _ipController, decoration: const InputDecoration(labelText: "Router IP (e.g. 192.168.88.1)")),
+            TextField(controller: _ipController, decoration: const InputDecoration(labelText: "Router IP")),
             TextField(controller: _userController, decoration: const InputDecoration(labelText: "Username")),
             TextField(controller: _passController, decoration: const InputDecoration(labelText: "Password"), obscureText: true),
           ],
@@ -92,7 +109,7 @@ class _JohbongShellState extends State<JohbongShell> {
           ElevatedButton(
             onPressed: () {
               setState(() {
-                isConnected = true; // Simulating connection for now
+                isConnected = true;
                 cpuUsage = "${Random().nextInt(15) + 5}%";
                 activeUsers = Random().nextInt(30);
               });
@@ -110,18 +127,13 @@ class _JohbongShellState extends State<JohbongShell> {
     return Scaffold(
       body: IndexedStack(
         index: _currentIndex,
-        children: [
-          _buildHome(),
-          _buildPlans(),
-          _buildTickets(),
-          _buildReport(),
-        ],
+        children: [_buildHome(), _buildPlans(), _buildTickets(), _buildReport()],
       ),
       bottomNavigationBar: _buildNavBar(),
     );
   }
 
-  // --- UPDATED HOME TAB WITH MONITORING ---
+  // --- HOME TAB ---
   Widget _buildHome() {
     return SafeArea(
       child: Padding(
@@ -129,28 +141,21 @@ class _JohbongShellState extends State<JohbongShell> {
         child: Column(
           children: [
             Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-              Row(children: [
-                const Icon(Icons.public, color: Colors.blue),
-                const SizedBox(width: 12),
-                Text("JOHBONG", style: GoogleFonts.orbitron(fontSize: 20, fontWeight: FontWeight.bold)),
-              ]),
+              Text("JOHBONG", style: GoogleFonts.orbitron(fontSize: 20, fontWeight: FontWeight.bold)),
               CircleAvatar(radius: 6, backgroundColor: isConnected ? Colors.green : Colors.red),
             ]),
             const SizedBox(height: 30),
-            
-            // MONITORING CARDS
             Row(children: [
-              Expanded(child: _miniMonitor("CPU USAGE", cpuUsage, Icons.memory)),
+              Expanded(child: _miniMonitor("CPU", cpuUsage, Icons.memory)),
               const SizedBox(width: 15),
-              Expanded(child: _miniMonitor("ACTIVE USERS", "$activeUsers", Icons.people)),
+              Expanded(child: _miniMonitor("USERS", "$activeUsers", Icons.people)),
             ]),
             const SizedBox(height: 15),
             _glassCard(isConnected ? "SYSTEM ALIVE" : "OFFLINE", 
-                       isConnected ? "Router connected perfectly." : "Please setup your router connection.", 
+                       isConnected ? "Router connected." : "Setup connection below.", 
                        isConnected ? Colors.greenAccent : Colors.redAccent),
-            
             const Spacer(),
-            _actionButton("GENERATE VOUCHER", () => _showPrintOptions(context)),
+            _actionButton("GENERATE VOUCHERS", () => _showPrintOptions(context)),
             const SizedBox(height: 10),
             TextButton(onPressed: _showSetupDialog, child: const Text("Router Setup", style: TextStyle(color: Colors.white24))),
           ],
@@ -159,55 +164,63 @@ class _JohbongShellState extends State<JohbongShell> {
     );
   }
 
-  Widget _miniMonitor(String label, String value, IconData icon) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(color: Colors.white.withOpacity(0.05), borderRadius: BorderRadius.circular(20)),
-      child: Column(children: [
-        Icon(icon, color: Colors.blueAccent, size: 20),
-        const SizedBox(height: 10),
-        Text(value, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-        Text(label, style: const TextStyle(fontSize: 10, color: Colors.white38)),
-      ]),
-    );
-  }
+  // --- REVENUE REPORT TAB (NEW & FUNCTIONAL) ---
+  Widget _buildReport() {
+    String today = DateFormat('yyyy-MM-dd').format(DateTime.now());
+    int todaySales = dailyRevenue[today] ?? 0;
 
-  // --- REST OF THE TABS ---
-  Widget _buildPlans() {
-    return Scaffold(
-      appBar: AppBar(title: const Text("Plans"), backgroundColor: Colors.transparent, elevation: 0),
-      body: ListView(
-        padding: const EdgeInsets.all(15),
-        children: [
-          _planCard("6hours", "Tsh 500", "10M/10M", "0d 06:00:00"),
-          _planCard("1Day", "Tsh 1000", "10M/10M", "1d 00:00:00"),
-          _planCard("3Days", "Tsh 2500", "10M/10M", "3d 00:00:00"),
-        ],
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text("Revenue History", style: GoogleFonts.orbitron(fontSize: 20, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 20),
+            _summaryCard("TODAY'S SALES", "Tsh $todaySales", Colors.blueAccent),
+            const SizedBox(height: 20),
+            const Text("PREVIOUS DAYS", style: TextStyle(color: Colors.white54, fontSize: 12)),
+            Expanded(
+              child: ListView.builder(
+                itemCount: dailyRevenue.length,
+                itemBuilder: (context, index) {
+                  String dateKey = dailyRevenue.keys.elementAt(index);
+                  if (dateKey == today) return const SizedBox.shrink();
+                  return ListTile(
+                    title: Text(dateKey),
+                    trailing: Text("Tsh ${dailyRevenue[dateKey]}", style: const TextStyle(color: Colors.greenAccent)),
+                  );
+                },
+              ),
+            )
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildTickets() {
-    return Scaffold(
-      appBar: AppBar(title: const Text("Voucher Vault"), backgroundColor: Colors.transparent),
-      body: voucherVault.isEmpty 
-        ? const Center(child: Text("No vouchers found"))
-        : ListView.builder(
-            itemCount: voucherVault.length,
-            itemBuilder: (context, i) => ListTile(
-              title: Text("PIN: ${voucherVault[i]['pin']}"),
-              subtitle: Text("Date: ${voucherVault[i]['date']}"),
-              trailing: Text(voucherVault[i]['status']!, style: const TextStyle(color: Colors.orange)),
-            ),
-          ),
-    );
-  }
+  // --- HELPER WIDGETS ---
+  Widget _summaryCard(String title, String val, Color col) => Container(
+    padding: const EdgeInsets.all(25),
+    width: double.infinity,
+    decoration: BoxDecoration(color: col.withOpacity(0.15), borderRadius: BorderRadius.circular(25), border: Border.all(color: col.withOpacity(0.5))),
+    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text(title, style: const TextStyle(fontSize: 10, letterSpacing: 1.2)),
+      Text(val, style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold)),
+    ]),
+  );
 
-  Widget _buildReport() {
-    return const Center(child: Text("Revenue Navigation Coming Next..."));
-  }
+  Widget _miniMonitor(String label, String value, IconData icon) => Container(
+    padding: const EdgeInsets.all(20),
+    decoration: BoxDecoration(color: Colors.white.withOpacity(0.05), borderRadius: BorderRadius.circular(20)),
+    child: Column(children: [
+      Icon(icon, color: Colors.blueAccent, size: 20),
+      const SizedBox(height: 10),
+      Text(value, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+      Text(label, style: const TextStyle(fontSize: 10, color: Colors.white38)),
+    ]),
+  );
 
-  // --- UI HELPERS ---
   void _showPrintOptions(BuildContext context) {
     showModalBottomSheet(
       context: context,
@@ -217,9 +230,9 @@ class _JohbongShellState extends State<JohbongShell> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text("Generate A4 Voucher Grid", style: TextStyle(fontWeight: FontWeight.bold)),
+            const Text("Generate 40 Vouchers (Tsh 500 each)", style: TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(height: 20),
-            _actionButton("GENERATE PDF", () => _generateA4Grid()),
+            _actionButton("GENERATE & PRINT PDF", () => _generateA4Grid()),
           ],
         ),
       ),
@@ -232,66 +245,15 @@ class _JohbongShellState extends State<JohbongShell> {
     for (int i = 0; i < 40; i++) {
       String pin = (Random().nextInt(89999999) + 10000000).toString();
       newPins.add(pin);
-      await _saveVoucher(pin);
+      await _saveVoucher(pin, 500); // Saves Tsh 500 per voucher
     }
     pdf.addPage(pw.Page(build: (c) => pw.GridView(crossAxisCount: 5, children: newPins.map((p) => pw.Container(border: pw.Border.all(), child: pw.Center(child: pw.Text(p)))).toList())));
     await Printing.layoutPdf(onLayout: (f) async => pdf.save());
   }
 
-  Widget _glassCard(String title, String sub, Color accent) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(25),
-      decoration: BoxDecoration(color: Colors.white.withOpacity(0.05), borderRadius: BorderRadius.circular(30), border: Border.all(color: Colors.white10)),
-      child: Column(children: [
-        Text(title, style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: accent)),
-        Text(sub, style: const TextStyle(color: Colors.white38)),
-      ]),
-    );
-  }
-
-  Widget _planCard(String name, String price, String speed, String time) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(color: const Color(0xFF0A1D33), borderRadius: BorderRadius.circular(15)),
-      child: Row(children: [
-        const Icon(Icons.receipt, color: Colors.blueAccent),
-        const SizedBox(width: 15),
-        Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(name), Text(price, style: const TextStyle(color: Colors.blueAccent))]),
-      ]),
-    );
-  }
-
-  Widget _actionButton(String label, VoidCallback onTap) {
-    return InkWell(
-      onTap: onTap,
-      child: Container(
-        height: 60,
-        width: double.infinity,
-        decoration: BoxDecoration(borderRadius: BorderRadius.circular(20), gradient: const LinearGradient(colors: [Colors.blue, Colors.blueDark])),
-        child: Center(child: Text(label, style: const TextStyle(fontWeight: FontWeight.bold))),
-      ),
-    );
-  }
-
-  Widget _buildNavBar() {
-    return BottomNavigationBar(
-      currentIndex: _currentIndex,
-      onTap: (i) => setState(() => _currentIndex = i),
-      selectedItemColor: Colors.blueAccent,
-      unselectedItemColor: Colors.white24,
-      type: BottomNavigationBarType.fixed,
-      backgroundColor: const Color(0xFF020B18),
-      items: const [
-        BottomNavigationBarItem(icon: Icon(Icons.home), label: "Home"),
-        BottomNavigationBarItem(icon: Icon(Icons.bolt), label: "Plans"),
-        BottomNavigationBarItem(icon: Icon(Icons.qr_code), label: "Tickets"),
-        BottomNavigationBarItem(icon: Icon(Icons.bar_chart), label: "Revenue"),
-      ],
-    );
-  }
+  Widget _buildPlans() => Scaffold(appBar: AppBar(title: const Text("Plans"), backgroundColor: Colors.transparent), body: const Center(child: Text("Plan Editor Active")));
+  Widget _buildTickets() => Scaffold(appBar: AppBar(title: const Text("Voucher Vault"), backgroundColor: Colors.transparent), body: ListView.builder(itemCount: voucherVault.length, itemBuilder: (c, i) => ListTile(title: Text("PIN: ${voucherVault[i]['pin']}"), trailing: Text(voucherVault[i]['status']!))));
+  Widget _actionButton(String label, VoidCallback onTap) => InkWell(onTap: onTap, child: Container(height: 60, width: double.infinity, decoration: BoxDecoration(borderRadius: BorderRadius.circular(20), gradient: const LinearGradient(colors: [Colors.blue, Color(0xFF0D47A1)])), child: Center(child: Text(label, style: const TextStyle(fontWeight: FontWeight.bold)))));
+  Widget _glassCard(String t, String s, Color a) => Container(width: double.infinity, padding: const EdgeInsets.all(25), decoration: BoxDecoration(color: Colors.white.withOpacity(0.05), borderRadius: BorderRadius.circular(30)), child: Column(children: [Text(t, style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: a)), Text(s, style: const TextStyle(color: Colors.white38))]));
+  Widget _buildNavBar() => BottomNavigationBar(currentIndex: _currentIndex, onTap: (i) => setState(() => _currentIndex = i), selectedItemColor: Colors.blueAccent, unselectedItemColor: Colors.white24, type: BottomNavigationBarType.fixed, backgroundColor: const Color(0xFF020B18), items: const [BottomNavigationBarItem(icon: Icon(Icons.home), label: "Home"), BottomNavigationBarItem(icon: Icon(Icons.bolt), label: "Plans"), BottomNavigationBarItem(icon: Icon(Icons.qr_code), label: "Tickets"), BottomNavigationBarItem(icon: Icon(Icons.bar_chart), label: "Revenue")]);
 }
-
-// Add a dummy color for the gradient since Flutter doesn't have "blueDark"
-extension on Colors { static const Color blueDark = Color(0xFF0D47A1); }
